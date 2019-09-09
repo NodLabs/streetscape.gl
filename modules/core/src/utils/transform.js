@@ -18,6 +18,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+/* eslint-disable camelcase */
 import {COORDINATE_SYSTEM} from '@deck.gl/core';
 import {_Pose as Pose, Matrix4} from 'math.gl';
 import {addMetersToLngLat} from 'viewport-mercator-project';
@@ -27,8 +28,40 @@ import {COORDINATE} from '../constants';
 // keep in sync with core-3d-viewer.js
 const DEFAULT_ORIGIN = [0, 0, 0];
 
-export function resolveCoordinateTransform(frame, streamMetadata = {}, getTransformMatrix) {
-  const {origin, transforms = {}, vehicleRelativeTransform} = frame;
+// Export only for testing
+export function resolveLinksTransform(links, streams, streamName) {
+  const transforms = [];
+  let sourcePose = links[streamName] && links[streamName].source_pose;
+
+  // TODO: we could cache the resulting transform based on the entry
+  // into the link structure.
+
+  // Collect all poses
+  while (sourcePose) {
+    transforms.push(streams[sourcePose]);
+    sourcePose = links[sourcePose] && links[sourcePose].source_pose;
+  }
+
+  // Apply poses
+  if (transforms.length) {
+    return transforms.reduce((acc, val) => {
+      // This is not 100% correct.  0 heading appears 180 off (behind rather than in front)
+      return new Matrix4()
+        .multiplyRight(new Pose(val).getTransformationMatrix().invert())
+        .multiplyRight(acc);
+    }, new Matrix4());
+  }
+
+  return null;
+}
+
+export function resolveCoordinateTransform(
+  frame,
+  streamName,
+  streamMetadata = {},
+  getTransformMatrix
+) {
+  const {origin, links, streams, transforms = {}, vehicleRelativeTransform} = frame;
   const {coordinate, transform, pose} = streamMetadata;
 
   let coordinateSystem = COORDINATE_SYSTEM.METER_OFFSETS;
@@ -52,8 +85,10 @@ export function resolveCoordinateTransform(frame, streamMetadata = {}, getTransf
       modelMatrix = vehicleRelativeTransform;
       break;
 
-    case COORDINATE.IDENTITY:
     default:
+    case COORDINATE.IDENTITY:
+      modelMatrix = resolveLinksTransform(links, streams, streamName);
+      break;
   }
 
   if (pose) {
