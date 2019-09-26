@@ -31,24 +31,31 @@ const DEFAULT_ORIGIN = [0, 0, 0];
 // Export only for testing
 export function resolveLinksTransform(links, streams, streamName) {
   const transforms = [];
-  let sourcePose = links[streamName] && links[streamName].source_pose;
+  let parentPose = links[streamName] && links[streamName].target_pose;
 
   // TODO: we could cache the resulting transform based on the entry
   // into the link structure.
 
-  // Collect all poses
-  while (sourcePose) {
-    transforms.push(streams[sourcePose]);
-    sourcePose = links[sourcePose] && links[sourcePose].source_pose;
+  let missingPose = false;
+
+  // Collect all poses from child to root
+  while (parentPose) {
+    if (!streams[parentPose]) {
+      missingPose = true;
+      break;
+    }
+    transforms.push(streams[parentPose]);
+    parentPose = links[parentPose] && links[parentPose].target_pose;
   }
 
-  // Apply poses
-  if (transforms.length) {
-    return transforms.reduce((acc, val) => {
-      // This is not 100% correct.  0 heading appears 180 off (behind rather than in front)
-      return new Matrix4()
-        .multiplyRight(new Pose(val).getTransformationMatrix().invert())
-        .multiplyRight(acc);
+  // Resolve pose transforms. If missingPose is true, which can happen if a
+  // persistent link is defined before normal state has been sent, ignore it
+  // TODO(twojtasz): Flag stream affected by missingPose so it can be reported
+  // by application
+  if (!missingPose && transforms.length) {
+    // process from root to child
+    return transforms.reduceRight((acc, val) => {
+      return acc.multiplyRight(new Pose(val).getTransformationMatrix());
     }, new Matrix4());
   }
 
@@ -74,6 +81,7 @@ export function resolveCoordinateTransform(
       break;
 
     case COORDINATE.DYNAMIC:
+      // TODO: this should work with links and needs streamName passed
       // cache calculated transform matrix for each frame
       transforms[transform] = transforms[transform] || getTransformMatrix(transform, frame);
       modelMatrix = transforms[transform];
@@ -82,6 +90,7 @@ export function resolveCoordinateTransform(
       break;
 
     case COORDINATE.VEHICLE_RELATIVE:
+      // TODO: this should work with links
       modelMatrix = vehicleRelativeTransform;
       break;
 
@@ -96,6 +105,7 @@ export function resolveCoordinateTransform(
     streamTransform = new Pose(pose).getTransformationMatrix();
   }
   if (streamTransform && streamTransform.length > 0) {
+    // TODO: this needs tested with links
     modelMatrix = modelMatrix
       ? new Matrix4(modelMatrix).multiplyRight(streamTransform)
       : streamTransform;

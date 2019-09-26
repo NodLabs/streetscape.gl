@@ -29,29 +29,29 @@ test('resolveLinksTransform', t => {
   // A -> D
   //
   // rotation links
-  // A -> AA -> D
-  // A -> B -> BB -> CC
+  // r90 -> m10 -> DD
+  // rn90 -> m20 -> CC
   const links = {
     C: {
-      source_pose: 'B'
+      target_pose: 'B'
     },
     B: {
-      source_pose: 'A'
+      target_pose: 'A'
     },
     D: {
-      source_pose: 'A'
-    },
-    AA: {
-      source_pose: 'A'
+      target_pose: 'A'
     },
     CC: {
-      source_pose: 'BB'
-    },
-    BB: {
-      source_pose: 'B'
+      target_pose: 'm20'
     },
     DD: {
-      source_pose: 'AA'
+      target_pose: 'm10'
+    },
+    m10: {
+      target_pose: 'r90'
+    },
+    m20: {
+      target_pose: 'rn90'
     }
   };
 
@@ -72,7 +72,7 @@ test('resolveLinksTransform', t => {
       y: 20,
       z: 0
     },
-    AA: {
+    r90: {
       yaw: Math.PI / 2,
       pitch: 0,
       roll: 0,
@@ -80,12 +80,28 @@ test('resolveLinksTransform', t => {
       y: 0,
       z: 0
     },
-    BB: {
-      yaw: Math.PI / 2,
+    rn90: {
+      yaw: -Math.PI / 2,
       pitch: 0,
       roll: 0,
       x: 0,
       y: 0,
+      z: 0
+    },
+    m10: {
+      yaw: 0,
+      pitch: 0,
+      roll: 0,
+      x: 10,
+      y: 10,
+      z: 0
+    },
+    m20: {
+      yaw: 0,
+      pitch: 0,
+      roll: 0,
+      x: 20,
+      y: 20,
       z: 0
     }
   };
@@ -94,22 +110,24 @@ test('resolveLinksTransform', t => {
     {stream: 'C', expected: [30, 30, 0]},
     {stream: 'D', expected: [10, 10, 0]},
     {stream: 'E', expected: null},
-    {stream: 'CC', expected: [-30, 30, 0]},
+    {stream: 'CC', expected: [20, -20, 0]},
     {stream: 'DD', expected: [-10, 10, 0]}
   ];
 
   for (const testcase of testCases) {
     const transformTo = resolveLinksTransform(links, streams, testcase.stream);
-
     if (transformTo) {
       const resultOrigin = transformTo.transformVector([0, 0, 0]);
-      t.deepEquals(
+
+      t.comment(typeof resultOrigin);
+      t.comment(typeof testcase.expected);
+      t.deepEqual(
         testcase.expected,
         resultOrigin,
         `transformed origin of ${testcase.stream} matches expected result ${testcase.expected}`
       );
     } else {
-      t.equals(
+      t.equal(
         transformTo,
         testcase.expected,
         `missing links entry matches expected '${testcase.expected}'`
