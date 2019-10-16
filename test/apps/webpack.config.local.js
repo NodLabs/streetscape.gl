@@ -68,9 +68,13 @@ function makeLocalDevConfig() {
             __dirname,
             '../../node_modules/@luma.gl/webgl-state-tracker'
           ),
-          '@luma.gl/webgl2-polyfill': resolve(__dirname, '../../node_modules/@luma.gl/webgl2-polyfill')
+          '@luma.gl/webgl2-polyfill': resolve(
+            __dirname,
+            '../../node_modules/@luma.gl/webgl2-polyfill'
+          )
         },
-      ALIASES)
+        ALIASES
+      )
     },
     module: {
       rules: [
